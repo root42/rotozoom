@@ -24,7 +24,13 @@ struct image *img = NULL;
 #define GETPIX(x,y) *(framebuf + (dword)SCREEN_WIDTH * (y) + (x))
 #define GETIMG(x,y) *(img->data + (dword)img->width * ((y) % img->height) + ((x) % img->width))
 
+#define FAST
+
+#ifndef FAST
+#define USE_FLOAT
+#else
 #define MODE_Y
+#endif
 
 void init_sin()
 {
@@ -38,8 +44,6 @@ void init_sin()
   }
 }
 
-#define NO_USE_FLOAT
-
 void draw_roto(word x, word y, word w, word h, dword t)
 {
   byte col;
@@ -50,14 +54,15 @@ void draw_roto(word x, word y, word w, word h, dword t)
   const float c = cos( angle );
   const float s = sin( angle );
   const float k = 4 * (s + 1);
-  const float l = 64*s;
+  const float tx = 64*s;
+  const float ty = 64*c;
   float js,jc;
   for( j = y; j < y + h; ++j ) {
     js = j*s;
     jc = j*c;
     for( i = x; i < x + w; ++i ) {
-      u = ((int16_t)((i * c - js) * k + l)) % (int16_t)img->width;
-      v = ((int16_t)((i * s + jc) * k + l)) % (int16_t)img->height;
+      u = ((int16_t)((i * c - js) * k + tx)) % (int16_t)img->width;
+      v = ((int16_t)((i * s + jc) * k + ty)) % (int16_t)img->height;
       col = GETIMG(u,v);
       SETPIX(i,j,col);
     }
@@ -123,9 +128,9 @@ int main()
 #ifdef MODE_Y
     draw_roto(0,0,80,50,t);
     wait_for_retrace();
-    blit4(framebuf,0,0,80,50);
+    blit4(framebuf,0,0,80,100);
 #else
-    draw_roto(0,0,320,200,t);
+    draw_roto(80,50,160,100,t);
     wait_for_retrace();
     memcpy(VGA,framebuf,SCREEN_WIDTH*SCREEN_HEIGHT);
 #endif
