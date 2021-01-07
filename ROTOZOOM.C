@@ -39,14 +39,13 @@ void init_sin()
 }
 
 #define NO_USE_FLOAT
-#define USE_DELTA
 
 void draw_roto(word x, word y, word w, word h, dword t)
 {
   byte col;
   word i,j;
-#ifdef USE_FLOAT
   int16_t u,v;
+#ifdef USE_FLOAT
   const float angle = M_PI * ( t / 180.0 );
   const float c = cos( angle );
   const float s = sin( angle );
@@ -63,9 +62,7 @@ void draw_roto(word x, word y, word w, word h, dword t)
       SETPIX(i,j,col);
     }
   }
-#endif
-#ifdef USE_DELTA
-  int16_t u,v;
+#else
   const int16_t c = SIN512[(t + 128) % 512];
   const int16_t s = SIN512[t % 512];
   const int16_t c2 = SINBIG[(t + 128) % 512];
@@ -73,16 +70,20 @@ void draw_roto(word x, word y, word w, word h, dword t)
   const int16_t s3 = SINPOS[t % 512];
   int16_t js,jc;
   int16_t icjs, isjc;
-  for( j = y; j < y + h; ++j ) {
+  byte far *pix;
+
+  for( j = y, pix = framebuf + y * w + x;
+       j < y + h;
+       ++j, pix += SCREEN_WIDTH - w)
+  {
     js = j*s;
     jc = j*c;
-    for( i = x; i < x + w; ++i ) {
+    for( i = x; i < x + w; ++i, ++pix ) {
       icjs = i * c - js;
       isjc = i * s + jc;
       u = (((icjs >> 8) * s3 + s2) >> 8) % (int16_t)img->width;
       v = (((isjc >> 8) * s3 + c2) >> 8) % (int16_t)img->height;
-      col = GETIMG(u,v);
-      SETPIX(i,j,col);
+      *pix = GETIMG(u,v);
     }
   }
 #endif
@@ -124,7 +125,7 @@ int main()
     wait_for_retrace();
     blit4(framebuf,0,0,80,50);
 #else
-    draw_roto(0,0,160,100,t);
+    draw_roto(0,0,320,200,t);
     wait_for_retrace();
     memcpy(VGA,framebuf,SCREEN_WIDTH*SCREEN_HEIGHT);
 #endif
