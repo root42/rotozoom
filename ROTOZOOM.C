@@ -16,7 +16,7 @@
 byte far *framebuf;
 int16_t SIN512[512];
 int16_t SINBIG[512];
-int16_t SINPOS[512];
+int16_t SINZOOM[512];
 byte pal[768];
 struct image *img = NULL;
 
@@ -40,7 +40,7 @@ void init_sin()
     v = sin( 2.0 * M_PI * i / 511.0 );
     SIN512[ i ] = (int16_t)(255.0 * v);
     SINBIG[ i ] = (int16_t)(65535.0 * v);
-    SINPOS[ i ] = (int16_t)(255.0 * 4 * (v + 1.0));
+    SINZOOM[ i ] = (int16_t)(255.0 * 2 * (v + 1.5));
   }
 }
 
@@ -72,7 +72,7 @@ void draw_roto(word x, word y, word w, word h, dword t)
   const int16_t s = SIN512[t % 512];
   const int16_t c2 = SINBIG[(t + 128) % 512];
   const int16_t s2 = SINBIG[t % 512];
-  const int16_t s3 = SINPOS[t % 512];
+  const int16_t z = SINZOOM[t % 512];
   int16_t js,jc;
   int16_t icjs, isjc;
   byte far *pix;
@@ -88,8 +88,8 @@ void draw_roto(word x, word y, word w, word h, dword t)
     icjs = x * c - js;
     isjc = x * s + jc;
     for( i = x; i < x + w; ++i, ++pix ) {
-      u = (((icjs >> 8) * s3 + s2) >> 8) % (int16_t)img->width;
-      v = (((isjc >> 8) * s3 + c2) >> 8) % (int16_t)img->height;
+      u = (((icjs >> 8) * z + s2) >> 8) % (int16_t)img->width;
+      v = (((isjc >> 8) * z + c2) >> 8) % (int16_t)img->height;
       *pix = GETIMG(u,v);
       icjs += c;
       isjc += s;
