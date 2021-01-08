@@ -77,18 +77,22 @@ void draw_roto(word x, word y, word w, word h, dword t)
   int16_t icjs, isjc;
   byte far *pix;
 
+  js = y * s;
+  jc = y * c;
   for( j = y, pix = framebuf + y * w + x;
        j < y + h;
        ++j, pix += SCREEN_WIDTH - w)
   {
-    js = j*s;
-    jc = j*c;
+    js += s;
+    jc += c;
+    icjs = x * c - js;
+    isjc = x * s + jc;
     for( i = x; i < x + w; ++i, ++pix ) {
-      icjs = i * c - js;
-      isjc = i * s + jc;
       u = (((icjs >> 8) * s3 + s2) >> 8) % (int16_t)img->width;
       v = (((isjc >> 8) * s3 + c2) >> 8) % (int16_t)img->height;
       *pix = GETIMG(u,v);
+      icjs += c;
+      isjc += s;
     }
   }
 #endif
