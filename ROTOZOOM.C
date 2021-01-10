@@ -14,9 +14,9 @@
 #define SCREEN_HEIGHT 200
 
 byte far *framebuf;
+int16_t SIN256[256];
 int16_t SIN512[512];
-int16_t SINBIG[512];
-int16_t SINZOOM[512];
+int16_t SINZOOM[256];
 byte pal[768];
 struct image *img = NULL;
 
@@ -24,82 +24,100 @@ struct image *img = NULL;
 #define GETPIX(x,y) *(framebuf + (dword)SCREEN_WIDTH * (y) + (x))
 #define GETIMG(x,y) *(img->data + (dword)img->width * ((y) % img->height) + ((x) % img->width))
 
-#define NOFAST
-
-#ifndef FAST
-#define USE_FLOAT
-#else
-#define MODE_Y
-#endif
+#define NO_USE_FLOAT
+#define NO_MODE_Y
 
 void init_sin()
 {
   word i;
   float v;
+  for( i = 0; i < 256; ++i ) {
+    v = sin( 2.0 * M_PI * i / 255.0 );
+    SIN256[ i ] = (int16_t)(127.0 * v);
+    SINZOOM[ i ] = (int16_t)(127.0 * 2 * (v + 1.2));
+  }
   for( i = 0; i < 512; ++i ) {
     v = sin( 2.0 * M_PI * i / 511.0 );
-    SIN512[ i ] = (int16_t)(255.0 * v);
-    SINBIG[ i ] = (int16_t)(65535.0 * v);
-    SINZOOM[ i ] = (int16_t)(255.0 * 2 * (v + 1.5));
+    SIN512[ i ] = (int16_t)(63.0 * v);
   }
 }
 
-void draw_roto(word x, word y, word w, word h, dword t)
-{
+void draw_roto(
+  const word x,
+  const word y,
+  const word w,
+  const word h,
+  const dword t
+) {
+  byte col;
   word i,j;
   int16_t u,v;
+  byte far *pix;
+
 #ifdef USE_FLOAT
   const float angle = M_PI * ( t / 180.0 );
   const float c = cos( angle );
   const float s = sin( angle );
-  const float k = (s + 1.5);
-  const float tx = 256*s;
-  const float ty = 256*c;
+  const float z = (s + 1.5);
+  const float tx = 64*(s+1);
+  const float ty = 64*(c+1);
+  float js, jc;
   float icjs,isjc;
-  byte far *pix, col;
-  for( j = y, pix = framebuf + y * w + x;
-       j < y + h;
+
+  js = (y+ty)*s;
+  jc = (y+ty)*c;
+  for( j = 0, pix = framebuf + y * w + x;
+       j < h;
        ++j, pix += SCREEN_WIDTH - w)
   {
-    icjs = x*c-j*s;
-    isjc = x*s+j*c;
-    for( i = x; i < (x + w) / 2; ++i ) {
-      u = ((int16_t)(icjs * k + tx)) % (int16_t)img->width;
-      v = ((int16_t)(isjc * k + ty)) % (int16_t)img->height;
+    icjs = (x+tx)*c-js;
+    isjc = (x+tx)*s+jc;
+    for( i = x; i < x + w; ++i ) {
+      u = ((int16_t)(icjs * z)) % (int16_t)img->width;
+      v = ((int16_t)(isjc * z)) % (int16_t)img->height;
       col = GETIMG(u,v);
       *pix++ = col;
+#ifndef MODE_Y
       *pix++ = col;
+      ++i;
+#endif
       icjs += c;
       isjc += s;
     }
-  }
-#else
-  const int16_t c = SIN512[(t + 128) % 512];
-  const int16_t s = SIN512[t % 512];
-  const int16_t c2 = SINBIG[(t + 128) % 512];
-  const int16_t s2 = SINBIG[t % 512];
-  const int16_t z = SINZOOM[t % 512];
-  int16_t js,jc;
-  int16_t icjs, isjc;
-  byte far *pix;
-
-  js = y * s;
-  jc = y * c;
-  for( j = y, pix = framebuf + y * w + x;
-       j < y + h;
-       ++j, pix += SCREEN_WIDTH - w)
-  {
     js += s;
     jc += c;
-    icjs = x * c - js;
-    isjc = x * s + jc;
-    for( i = x; i < x + w; ++i, ++pix ) {
-      u = (((icjs >> 8) * z + s2) >> 8) % (int16_t)img->width;
-      v = (((isjc >> 8) * z + c2) >> 8) % (int16_t)img->height;
-      *pix = GETIMG(u,v);
+  }
+#else
+  const int16_t c = SIN256[(t + 64) % 256];
+  const int16_t s = SIN256[t % 256];
+  const int16_t z = SINZOOM[t % 256];
+  const int16_t tx = SIN512[t % 512];
+  const int16_t ty = SIN512[(t + 128) % 512];
+  int16_t js,jc;
+  int16_t icjs, isjc;
+
+  js = (y+ty) * s;
+  jc = (y+ty) * c;
+  for( j = 0, pix = framebuf + y * w + x;
+       j < h;
+       ++j, pix += SCREEN_WIDTH - w)
+  {
+    icjs = (x+tx) * c - js;
+    isjc = (x+tx) * s + jc;
+    for( i = 0; i < w; ++i ) {
+      u = (((icjs >> 7) * z) >> 7) & 0x7f; /*(const int16_t)img->width;*/
+      v = (((isjc >> 7) * z) >> 7) & 0x7f; /*(const int16_t)img->height;*/
+      col = GETIMG(u,v);
+      *pix++ = col;
+#ifndef MODE_Y
+      *pix++ = col;
+      ++i;
+#endif
       icjs += c;
       isjc += s;
     }
+    js += s;
+    jc += c;
   }
 #endif
 }
