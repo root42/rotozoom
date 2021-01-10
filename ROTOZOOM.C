@@ -24,7 +24,7 @@ struct image *img = NULL;
 #define GETPIX(x,y) *(framebuf + (dword)SCREEN_WIDTH * (y) + (x))
 #define GETIMG(x,y) *(img->data + (dword)img->width * ((y) % img->height) + ((x) % img->width))
 
-#define FAST
+#define NOFAST
 
 #ifndef FAST
 #define USE_FLOAT
@@ -46,25 +46,31 @@ void init_sin()
 
 void draw_roto(word x, word y, word w, word h, dword t)
 {
-  byte col;
   word i,j;
   int16_t u,v;
 #ifdef USE_FLOAT
   const float angle = M_PI * ( t / 180.0 );
   const float c = cos( angle );
   const float s = sin( angle );
-  const float k = 4 * (s + 1);
-  const float tx = 64*s;
-  const float ty = 64*c;
-  float js,jc;
-  for( j = y; j < y + h; ++j ) {
-    js = j*s;
-    jc = j*c;
-    for( i = x; i < x + w; ++i ) {
-      u = ((int16_t)((i * c - js) * k + tx)) % (int16_t)img->width;
-      v = ((int16_t)((i * s + jc) * k + ty)) % (int16_t)img->height;
+  const float k = (s + 1.5);
+  const float tx = 256*s;
+  const float ty = 256*c;
+  float icjs,isjc;
+  byte far *pix, col;
+  for( j = y, pix = framebuf + y * w + x;
+       j < y + h;
+       ++j, pix += SCREEN_WIDTH - w)
+  {
+    icjs = x*c-j*s;
+    isjc = x*s+j*c;
+    for( i = x; i < (x + w) / 2; ++i ) {
+      u = ((int16_t)(icjs * k + tx)) % (int16_t)img->width;
+      v = ((int16_t)(isjc * k + ty)) % (int16_t)img->height;
       col = GETIMG(u,v);
-      SETPIX(i,j,col);
+      *pix++ = col;
+      *pix++ = col;
+      icjs += c;
+      isjc += s;
     }
   }
 #else
@@ -134,9 +140,12 @@ int main()
     wait_for_retrace();
     blit4(framebuf,0,0,80,100);
 #else
-    draw_roto(80,50,160,100,t);
+    draw_roto(0,0,320,100,t);
     wait_for_retrace();
-    memcpy(VGA,framebuf,SCREEN_WIDTH*SCREEN_HEIGHT);
+    for( i = 0; i < 100; i++ ) {
+      memcpy(VGA + 2*i      *SCREEN_WIDTH, framebuf + i * SCREEN_WIDTH, SCREEN_WIDTH);
+      memcpy(VGA + (2*i + 1)*SCREEN_WIDTH, framebuf + i * SCREEN_WIDTH, SCREEN_WIDTH);
+    }
 #endif
     t++;
   }
