@@ -24,7 +24,7 @@ struct image *img = NULL;
 #define GETPIX(x,y) *(framebuf + (dword)SCREEN_WIDTH * (y) + (x))
 #define GETIMG(x,y) *(img->data + (dword)img->width * ((y) % img->height) + ((x) % img->width))
 
-#define NO_USE_FLOAT
+#define NO_FLOAT
 #define NO_MODE_Y
 
 void init_sin()
@@ -47,32 +47,31 @@ void draw_roto(
   const word y,
   const word w,
   const word h,
-  const dword t
-) {
-  byte col;
+  const dword t)
+{
   word i,j;
   int16_t u,v;
+  byte col;
   byte far *pix;
-
 #ifdef USE_FLOAT
   const float angle = M_PI * ( t / 180.0 );
   const float c = cos( angle );
   const float s = sin( angle );
   const float z = (s + 1.5);
-  const float tx = 64*(s+1);
-  const float ty = 64*(c+1);
+  const float tx = 64 * (s + 1);
+  const float ty = 64 * (c + 1);
   float js, jc;
-  float icjs,isjc;
+  float icjs, isjc;
 
   js = (y+ty)*s;
   jc = (y+ty)*c;
   for( j = 0, pix = framebuf + y * w + x;
        j < h;
-       ++j, pix += SCREEN_WIDTH - w)
-  {
+       ++j, pix += SCREEN_WIDTH - w
+  ) {
     icjs = (x+tx)*c-js;
     isjc = (x+tx)*s+jc;
-    for( i = x; i < x + w; ++i ) {
+    for( i = 0; i < w; ++i ) {
       u = ((int16_t)(icjs * z)) % (int16_t)img->width;
       v = ((int16_t)(isjc * z)) % (int16_t)img->height;
       col = GETIMG(u,v);
@@ -88,25 +87,25 @@ void draw_roto(
     jc += c;
   }
 #else
-  const int16_t c = SIN256[(t + 64) % 256];
+  const int16_t c = SIN256[(t+64) % 256];
   const int16_t s = SIN256[t % 256];
   const int16_t z = SINZOOM[t % 256];
   const int16_t tx = SIN512[t % 512];
   const int16_t ty = SIN512[(t + 128) % 512];
-  int16_t js,jc;
+  int16_t js, jc;
   int16_t icjs, isjc;
 
-  js = (y+ty) * s;
-  jc = (y+ty) * c;
+  js = (y+ty)*s;
+  jc = (y+ty)*c;
   for( j = 0, pix = framebuf + y * w + x;
        j < h;
-       ++j, pix += SCREEN_WIDTH - w)
+       ++j, pix += SCREEN_WIDTH - w )
   {
-    icjs = (x+tx) * c - js;
-    isjc = (x+tx) * s + jc;
+    icjs = (x+tx)*c-js;
+    isjc = (x+tx)*s+jc;
     for( i = 0; i < w; ++i ) {
-      u = (((icjs >> 7) * z) >> 7) & 0x7f; /*(const int16_t)img->width;*/
-      v = (((isjc >> 7) * z) >> 7) & 0x7f; /*(const int16_t)img->height;*/
+      u = (((icjs >> 7) * z) >> 7) & 0x7f;
+      v = (((isjc >> 7) * z) >> 7) & 0x7f;
       col = GETIMG(u,v);
       *pix++ = col;
 #ifndef MODE_Y
